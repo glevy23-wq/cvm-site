@@ -2,116 +2,160 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CVM Monitor — Participações Acionárias</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CVM Monitor — Participações Acionárias em Tempo Real</title>
+<meta name="description" content="Monitoramento 24/7 de aquisições e alienações de participação acionária. CVM Resolução 44/21.">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
-  header { background: #1a1d27; border-bottom: 1px solid #2d3748; padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
-  header h1 { font-size: 20px; font-weight: 700; color: #7c3aed; }
-  header span { color: #64748b; font-size: 14px; }
-  .search-box { margin: 32px auto; max-width: 600px; padding: 0 16px; }
-  .search-box input { width: 100%; padding: 14px 20px; font-size: 18px; background: #1a1d27; border: 2px solid #2d3748; border-radius: 12px; color: #e2e8f0; outline: none; transition: border-color 0.2s; }
-  .search-box input:focus { border-color: #7c3aed; }
-  .search-box input::placeholder { color: #64748b; }
-  #suggestions { background: #1a1d27; border: 1px solid #2d3748; border-radius: 8px; margin-top: 4px; overflow: hidden; }
-  .sug-item { padding: 12px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-  .sug-item:hover { background: #2d3748; }
-  .sug-ticker { color: #7c3aed; font-weight: 700; font-size: 14px; }
-  .sug-name { color: #94a3b8; font-size: 13px; }
-  .nav-links { text-align: center; margin: 16px; }
-  .nav-links a { color: #7c3aed; text-decoration: none; margin: 0 12px; font-size: 14px; }
-  .nav-links a:hover { text-decoration: underline; }
-  .hero { text-align: center; padding: 60px 16px 40px; }
-  .hero h2 { font-size: 32px; font-weight: 800; color: #e2e8f0; margin-bottom: 12px; }
-  .hero p { color: #64748b; font-size: 16px; max-width: 500px; margin: 0 auto; }
-  .stats { display: flex; gap: 16px; justify-content: center; margin: 32px 0; flex-wrap: wrap; }
-  .stat { background: #1a1d27; border: 1px solid #2d3748; border-radius: 12px; padding: 20px 32px; text-align: center; }
-  .stat-num { font-size: 28px; font-weight: 800; color: #7c3aed; }
-  .stat-label { color: #64748b; font-size: 13px; margin-top: 4px; }
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0f1117;--card:#1a1d27;--border:#2d3748;--text:#e2e8f0;--muted:#64748b;--purple:#7c3aed;--green:#22c55e;--red:#ef4444;--blue:#60a5fa}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-size:18px;font-weight:800;color:var(--purple)}
+.logo span{color:var(--text);font-weight:400}
+nav a{color:var(--muted);text-decoration:none;font-size:13px;margin-left:20px}
+nav a:hover{color:var(--text)}
+.hero{text-align:center;padding:60px 16px 40px}
+.hero h1{font-size:36px;font-weight:800;margin-bottom:12px;line-height:1.2}
+.hero h1 span{color:var(--purple)}
+.hero p{color:var(--muted);font-size:16px;max-width:520px;margin:0 auto 32px}
+.search-wrap{max-width:580px;margin:0 auto;position:relative}
+.search-wrap input{width:100%;padding:14px 20px 14px 48px;font-size:16px;background:var(--card);border:2px solid var(--border);border-radius:14px;color:var(--text);outline:none;transition:border-color .15s}
+.search-wrap input:focus{border-color:var(--purple)}
+.search-icon{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:18px;pointer-events:none}
+#suggestions{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-top:4px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.sug-item{padding:10px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background .1s}
+.sug-item:hover{background:#232636}
+.sug-ticker{color:var(--purple);font-weight:700;font-size:13px;min-width:60px}
+.sug-name{color:var(--muted);font-size:13px}
+.sug-setor{color:#4a5568;font-size:11px}
+.stats{display:flex;gap:12px;justify-content:center;margin:40px 16px;flex-wrap:wrap}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 28px;text-align:center;min-width:140px}
+.stat-num{font-size:26px;font-weight:800;color:var(--purple)}
+.stat-label{color:var(--muted);font-size:12px;margin-top:4px}
+.quick-links{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:8px 16px 40px}
+.ql-btn{padding:8px 18px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);text-decoration:none;font-size:13px;transition:all .15s}
+.ql-btn:hover{border-color:var(--purple);color:var(--purple)}
+.recent{max-width:900px;margin:0 auto;padding:0 16px 60px}
+.recent h2{font-size:18px;font-weight:700;margin-bottom:14px;color:var(--muted)}
+.recent-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.ri-left{display:flex;gap:10px;align-items:center}
+.ri-ticker{color:var(--purple);font-weight:700;font-size:12px;background:#1e1040;padding:2px 8px;border-radius:5px}
+.ri-name{font-size:13px}
+.ri-op-c{color:var(--green);font-size:12px;font-weight:700}
+.ri-op-v{color:var(--red);font-size:12px;font-weight:700}
+.ri-date{color:var(--muted);font-size:12px}
 </style>
 </head>
 <body>
 <header>
-  <h1>CVM Monitor</h1>
-  <span>Participações Acionárias em Tempo Real</span>
+  <div class="logo">CVM <span>Monitor</span></div>
+  <nav>
+    <a href="/aqal">AQ/AL</a>
+    <a href="/api/health">Status</a>
+    <a href="/api/memory?scope=system">Memória</a>
+  </nav>
 </header>
 
 <div class="hero">
-  <h2>Quem está comprando e vendendo?</h2>
-  <p>Monitoramento 24/7 de aquisições e alienações de participação acionária relevante — CVM Resolução 44/21</p>
+  <h1>Quem está <span>comprando e vendendo</span><br>ações das empresas?</h1>
+  <p>Monitoramento 24/7 de participações acionárias relevantes — CVM Resolução 44/21. 645 empresas, sem delay.</p>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="q" placeholder="Buscar empresa ou ticker... ex: PETR4, Vale, Ambev" autocomplete="off">
+    <div id="suggestions"></div>
+  </div>
 </div>
 
-<div class="search-box">
-  <input type="text" id="q" placeholder="Buscar empresa ou ticker... (ex: PETR4, Petrobras, VALE)">
-  <div id="suggestions"></div>
+<div class="stats">
+  <div class="stat"><div class="stat-num" id="s-filings">—</div><div class="stat-label">Docs CVM indexados</div></div>
+  <div class="stat"><div class="stat-num" id="s-aqal">—</div><div class="stat-label">AQ/AL monitorados</div></div>
+  <div class="stat"><div class="stat-num">645</div><div class="stat-label">Empresas cobertas</div></div>
+  <div class="stat"><div class="stat-num" id="s-uptime" style="font-size:18px;color:var(--green)">🟢 Live</div><div class="stat-label">Atualizado a cada 15min</div></div>
 </div>
 
-<div class="nav-links">
-  <a href="/api/aqal">📊 Todas AQ/AL recentes</a>
-  <a href="/api/empresa?ticker=PETR4">🏢 Exemplo: PETR4</a>
+<div class="quick-links">
+  <a class="ql-btn" href="/aqal">📊 Todas AQ/AL recentes</a>
+  <a class="ql-btn" href="/empresa?ticker=PETR4">🛢 PETR4</a>
+  <a class="ql-btn" href="/empresa?ticker=VALE3">⛏ VALE3</a>
+  <a class="ql-btn" href="/empresa?ticker=ITUB4">🏦 ITUB4</a>
+  <a class="ql-btn" href="/empresa?ticker=MGLU3">🛒 MGLU3</a>
 </div>
 
-<div class="stats" id="stats">
-  <div class="stat"><div class="stat-num" id="stat-total">—</div><div class="stat-label">Documentos CVM</div></div>
-  <div class="stat"><div class="stat-num" id="stat-aqal">—</div><div class="stat-label">AQ/AL processados</div></div>
-  <div class="stat"><div class="stat-num" id="stat-empresas">645</div><div class="stat-label">Empresas monitoradas</div></div>
+<div class="recent">
+  <h2>Últimas participações registradas</h2>
+  <div id="recent-list"><div style="color:var(--muted);font-size:13px">Carregando...</div></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
 <script>
+const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtdW1sbGRxZXdpa3J2YmRmZXNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTI5MTksImV4cCI6MjA5MzMyODkxOX0.pn2sJ3Hpe1N0UMaXHZBE4Jz4Xp9yyELYmJN7pOu6Pk';
 const SUPA = 'https://emumlldqewikrvbdfesd.supabase.co/rest/v1';
-const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtdW1sbGRxZXdpa3J2YmRmZXNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTI5MTksImV4cCI6MjA5MzMyODkxOX0.pn2sJ3Hpe1N0UMaXHZBE4Jz4Xp9yyELYmJN7pOu6Pk';
+const H = {apikey:ANON, Authorization:`Bearer ${ANON}`};
 
-let empresas = [];
-let fuse;
+let empresas = [], fuse;
 
-async function loadEmpresas() {
-  const r = await fetch(`${SUPA}/empresas_b3?select=ticker,denom_social,cdcvm&order=denom_social&limit=700`, {headers:{apikey:KEY,Authorization:`Bearer ${KEY}`}});
-  empresas = await r.json();
-  
-  if (window.Fuse) {
-    fuse = new Fuse(empresas, {keys:['ticker','denom_social'], threshold:0.35, minMatchCharLength:1});
+// Carregar dados
+async function init() {
+  const [rE, rF, rA, rR] = await Promise.all([
+    fetch(`${SUPA}/empresas_b3?select=ticker,denom_social,cdcvm,setor&order=denom_social&limit=700`, {headers:H}),
+    fetch(`${SUPA}/filings?select=count`, {headers:{...H,Prefer:'count=exact',Range:'0-0'}}),
+    fetch(`${SUPA}/aq_al_processed?select=count`, {headers:{...H,Prefer:'count=exact',Range:'0-0'}}),
+    fetch(`${SUPA}/aq_al_processed?select=ticker,empresa_nome,operacao,data_entrega,delta_pct&order=data_entrega.desc&limit=6`, {headers:H})
+  ]);
+
+  empresas = await rE.json();
+  fuse = new Fuse(empresas, {keys:['ticker','denom_social'], threshold:0.35, minMatchCharLength:1, includeScore:true});
+
+  const fCount = rF.headers.get('content-range')?.split('/')[1];
+  const aCount = rA.headers.get('content-range')?.split('/')[1];
+  if (fCount) document.getElementById('s-filings').textContent = parseInt(fCount).toLocaleString('pt-BR');
+  if (aCount) document.getElementById('s-aqal').textContent = parseInt(aCount).toLocaleString('pt-BR');
+
+  // Últimas AQ/AL
+  const recent = await rR.json();
+  const div = document.getElementById('recent-list');
+  if (Array.isArray(recent) && recent.length > 0) {
+    div.innerHTML = recent.map(r => {
+      const delta = r.delta_pct!=null ? (r.delta_pct>0?`+${r.delta_pct.toFixed(1)}%`:`${r.delta_pct.toFixed(1)}%`) : '';
+      const opClass = r.operacao==='COMPRA'?'ri-op-c':'ri-op-v';
+      const opIcon  = r.operacao==='COMPRA'?'▲':'▼';
+      return `<div class="recent-item" onclick="location.href='/empresa?ticker=${r.ticker||''}'" style="cursor:pointer">
+        <div class="ri-left">
+          ${r.ticker?`<span class="ri-ticker">${r.ticker}</span>`:''}
+          <span class="ri-name">${r.empresa_nome||'?'}</span>
+          <span class="${opClass}">${opIcon} ${r.operacao||'?'}</span>
+          ${delta?`<span style="font-family:monospace;font-size:12px;color:${r.delta_pct>0?'var(--green)':'var(--red)'}">${delta}</span>`:''}
+        </div>
+        <div class="ri-date">${(r.data_entrega||'').substring(0,10)}</div>
+      </div>`;
+    }).join('');
+  } else {
+    div.innerHTML = '<div style="color:var(--muted);font-size:13px">Nenhum AQ/AL recente.</div>';
   }
 }
 
-async function loadStats() {
-  const [r1, r2] = await Promise.all([
-    fetch(`${SUPA}/filings?select=count`, {headers:{apikey:KEY,Authorization:`Bearer ${KEY}`,Prefer:'count=exact',Range:'0-0'}}),
-    fetch(`${SUPA}/aq_al_processed?select=count`, {headers:{apikey:KEY,Authorization:`Bearer ${KEY}`,Prefer:'count=exact',Range:'0-0'}})
-  ]);
-  const t1 = r1.headers.get('content-range')?.split('/')[1];
-  const t2 = r2.headers.get('content-range')?.split('/')[1];
-  if (t1) document.getElementById('stat-total').textContent = parseInt(t1).toLocaleString('pt-BR');
-  if (t2) document.getElementById('stat-aqal').textContent = parseInt(t2).toLocaleString('pt-BR');
-}
-
+// Search
 document.getElementById('q').addEventListener('input', function() {
   const q = this.value.trim();
-  const div = document.getElementById('suggestions');
-  if (!q || q.length < 1) { div.innerHTML = ''; return; }
-  
-  let results;
-  if (fuse) {
-    results = fuse.search(q, {limit:8}).map(r=>r.item);
-  } else {
-    const ql = q.toLowerCase();
-    results = empresas.filter(e => (e.ticker||'').toLowerCase().startsWith(ql) || (e.denom_social||'').toLowerCase().includes(ql)).slice(0,8);
-  }
-  
-  div.innerHTML = results.map(e => `
-    <div class="sug-item" onclick="window.location='/api/empresa?ticker=${e.ticker||'cdcvm='+e.cdcvm}'">
-      <div>
+  const sug = document.getElementById('suggestions');
+  if (!q || q.length < 1 || !fuse) { sug.innerHTML=''; return; }
+  const results = fuse.search(q, {limit:7}).map(r=>r.item);
+  sug.innerHTML = results.map(e=>`
+    <div class="sug-item" onclick="location.href='/empresa?ticker=${e.ticker||''}&cdcvm=${e.cdcvm||''}'">
+      <div style="display:flex;gap:10px;align-items:center">
         <span class="sug-ticker">${e.ticker||'—'}</span>
-        <span class="sug-name"> — ${(e.denom_social||'').substring(0,40)}</span>
+        <span class="sug-name">${(e.denom_social||'').substring(0,45)}</span>
       </div>
+      <span class="sug-setor">${(e.setor||'').substring(0,25)}</span>
     </div>
   `).join('');
 });
 
-loadEmpresas();
-loadStats();
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrap')) document.getElementById('suggestions').innerHTML='';
+});
+
+init();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js" 
-  onload="if(empresas.length){fuse=new Fuse(empresas,{keys:['ticker','denom_social'],threshold:0.35,minMatchCharLength:1})}"></script>
 </body>
 </html>
