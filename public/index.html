@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CVM Monitor — Participações Acionárias</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+  header { background: #1a1d27; border-bottom: 1px solid #2d3748; padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 20px; font-weight: 700; color: #7c3aed; }
+  header span { color: #64748b; font-size: 14px; }
+  .search-box { margin: 32px auto; max-width: 600px; padding: 0 16px; }
+  .search-box input { width: 100%; padding: 14px 20px; font-size: 18px; background: #1a1d27; border: 2px solid #2d3748; border-radius: 12px; color: #e2e8f0; outline: none; transition: border-color 0.2s; }
+  .search-box input:focus { border-color: #7c3aed; }
+  .search-box input::placeholder { color: #64748b; }
+  #suggestions { background: #1a1d27; border: 1px solid #2d3748; border-radius: 8px; margin-top: 4px; overflow: hidden; }
+  .sug-item { padding: 12px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+  .sug-item:hover { background: #2d3748; }
+  .sug-ticker { color: #7c3aed; font-weight: 700; font-size: 14px; }
+  .sug-name { color: #94a3b8; font-size: 13px; }
+  .nav-links { text-align: center; margin: 16px; }
+  .nav-links a { color: #7c3aed; text-decoration: none; margin: 0 12px; font-size: 14px; }
+  .nav-links a:hover { text-decoration: underline; }
+  .hero { text-align: center; padding: 60px 16px 40px; }
+  .hero h2 { font-size: 32px; font-weight: 800; color: #e2e8f0; margin-bottom: 12px; }
+  .hero p { color: #64748b; font-size: 16px; max-width: 500px; margin: 0 auto; }
+  .stats { display: flex; gap: 16px; justify-content: center; margin: 32px 0; flex-wrap: wrap; }
+  .stat { background: #1a1d27; border: 1px solid #2d3748; border-radius: 12px; padding: 20px 32px; text-align: center; }
+  .stat-num { font-size: 28px; font-weight: 800; color: #7c3aed; }
+  .stat-label { color: #64748b; font-size: 13px; margin-top: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>CVM Monitor</h1>
+  <span>Participações Acionárias em Tempo Real</span>
+</header>
+
+<div class="hero">
+  <h2>Quem está comprando e vendendo?</h2>
+  <p>Monitoramento 24/7 de aquisições e alienações de participação acionária relevante — CVM Resolução 44/21</p>
+</div>
+
+<div class="search-box">
+  <input type="text" id="q" placeholder="Buscar empresa ou ticker... (ex: PETR4, Petrobras, VALE)">
+  <div id="suggestions"></div>
+</div>
+
+<div class="nav-links">
+  <a href="/api/aqal">📊 Todas AQ/AL recentes</a>
+  <a href="/api/empresa?ticker=PETR4">🏢 Exemplo: PETR4</a>
+</div>
+
+<div class="stats" id="stats">
+  <div class="stat"><div class="stat-num" id="stat-total">—</div><div class="stat-label">Documentos CVM</div></div>
+  <div class="stat"><div class="stat-num" id="stat-aqal">—</div><div class="stat-label">AQ/AL processados</div></div>
+  <div class="stat"><div class="stat-num" id="stat-empresas">645</div><div class="stat-label">Empresas monitoradas</div></div>
+</div>
+
+<script>
+const SUPA = 'https://emumlldqewikrvbdfesd.supabase.co/rest/v1';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtdW1sbGRxZXdpa3J2YmRmZXNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTI5MTksImV4cCI6MjA5MzMyODkxOX0.pn2sJ3Hpe1N0UMaXHZBE4Jz4Xp9yyELYmJN7pOu6Pk';
+
+let empresas = [];
+let fuse;
+
+async function loadEmpresas() {
+  const r = await fetch(`${SUPA}/empresas_b3?select=ticker,denom_social,cdcvm&order=denom_social&limit=700`, {headers:{apikey:KEY,Authorization:`Bearer ${KEY}`}});
+  empresas = await r.json();
+  
+  if (window.Fuse) {
+    fuse = new Fuse(empresas, {keys:['ticker','denom_social'], threshold:0.35, minMatchCharLength:1});
+  }
+}
+
+async function loadStats() {
+  const [r1, r2] = await Promise.all([
+    fetch(`${SUPA}/filings?select=count`, {headers:{apikey:KEY,Authorization:`Bearer ${KEY}`,Prefer:'count=exact',Range:'0-0'}}),
+    fetch(`${SUPA}/aq_al_processed?select=count`, {headers:{apikey:KEY,Authorization:`Bearer ${KEY}`,Prefer:'count=exact',Range:'0-0'}})
+  ]);
+  const t1 = r1.headers.get('content-range')?.split('/')[1];
+  const t2 = r2.headers.get('content-range')?.split('/')[1];
+  if (t1) document.getElementById('stat-total').textContent = parseInt(t1).toLocaleString('pt-BR');
+  if (t2) document.getElementById('stat-aqal').textContent = parseInt(t2).toLocaleString('pt-BR');
+}
+
+document.getElementById('q').addEventListener('input', function() {
+  const q = this.value.trim();
+  const div = document.getElementById('suggestions');
+  if (!q || q.length < 1) { div.innerHTML = ''; return; }
+  
+  let results;
+  if (fuse) {
+    results = fuse.search(q, {limit:8}).map(r=>r.item);
+  } else {
+    const ql = q.toLowerCase();
+    results = empresas.filter(e => (e.ticker||'').toLowerCase().startsWith(ql) || (e.denom_social||'').toLowerCase().includes(ql)).slice(0,8);
+  }
+  
+  div.innerHTML = results.map(e => `
+    <div class="sug-item" onclick="window.location='/api/empresa?ticker=${e.ticker||'cdcvm='+e.cdcvm}'">
+      <div>
+        <span class="sug-ticker">${e.ticker||'—'}</span>
+        <span class="sug-name"> — ${(e.denom_social||'').substring(0,40)}</span>
+      </div>
+    </div>
+  `).join('');
+});
+
+loadEmpresas();
+loadStats();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js" 
+  onload="if(empresas.length){fuse=new Fuse(empresas,{keys:['ticker','denom_social'],threshold:0.35,minMatchCharLength:1})}"></script>
+</body>
+</html>
