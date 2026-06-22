@@ -7,7 +7,7 @@ const EC_ID = 'ecfg_kxfajvv2fvcam49ajeviklqy7pce';
 const VERCEL_TOKEN = process.env.VERCEL_API_TOKEN;
 const TEAM_ID = 'team_dQalzZQjOlCxp7dvSCclnxo4';
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   try {
     // Contar filings recentes (últimas 24h)
     const since = new Date(Date.now() - 24*60*60*1000).toISOString().slice(0,10);
