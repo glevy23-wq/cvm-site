@@ -20,18 +20,17 @@ module.exports = async function handler(req, res) {
 
   // Construir query Supabase
   let qs = `select=dtreceb,dtrefer,empresa,ticker,cdcvm,especiedoc,assunto,importancia,badge_gov,linkdoc,motivo&categdoc=eq.Fato+Relevante&order=dtreceb.desc&limit=${PAGE_SIZE}&offset=${offset}`;
-  if (empresa) qs += `&empresa=ilike.*${encodeURIComponent(empresa)}*`;
+  if (empresa) qs += `&empresa=ilike.%25${encodeURIComponent(empresa)}%25`;
   if (ano)     qs += `&dtreceb=gte.${ano}-01-01&dtreceb=lte.${ano}-12-31`;
-  if (q)       qs += `&or=(empresa.ilike.*${encodeURIComponent(q)}*,especiedoc.ilike.*${encodeURIComponent(q)}*,assunto.ilike.*${encodeURIComponent(q)}*)`;
+  if (q)       qs += `&or=(empresa.ilike.%25${encodeURIComponent(q)}%25,especiedoc.ilike.%25${encodeURIComponent(q)}%25)`;
 
   let docs = [], total = TOTAL_APPROX;
   try {
     const resp = await fetch(`${SUPA}/rest/v1/filings?${qs}`, {
-      headers: { apikey: KEY(), Authorization: `Bearer ${KEY()}`, Prefer: 'count=exact' }
+      headers: { apikey: KEY(), Authorization: `Bearer ${KEY()}` }
     });
     docs = await resp.json();
-    const cr = resp.headers.get('content-range') || '';
-    if (cr.includes('/')) total = parseInt(cr.split('/')[1]) || TOTAL_APPROX;
+    // Sem count=exact — usa TOTAL_APPROX fixo para performance
     if (!Array.isArray(docs)) { res.status(500).send('Query error: ' + JSON.stringify(docs).slice(0,100)); return; }
   } catch(e) { res.status(500).send('Fetch error: ' + e.message); return; }
 
