@@ -7,7 +7,7 @@ const SUPA_URL = process.env.SUPABASE_URL || "https://emumlldqewikrvbdfesd.supab
 const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY;
 const H = () => ({ apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}`, 'Content-Type': 'application/json' });
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'no-store');
 
