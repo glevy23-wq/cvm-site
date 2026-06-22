@@ -29,6 +29,14 @@
     {
       "source": "/memory",
       "destination": "/api/memory"
+    },
+    {
+      "source": "/empresa-data",
+      "destination": "/api/empresa-data"
+    },
+    {
+      "source": "/empresa-data/:path*",
+      "destination": "/api/empresa-data"
     }
   ],
   "headers": [
