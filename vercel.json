@@ -72,15 +72,5 @@
   ],
   "env": {
     "SUPABASE_URL": "https://emumlldqewikrvbdfesd.supabase.co"
-  },
-  "crons": [
-    {
-      "path": "/api/warmup",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/sync-status",
-      "schedule": "0 * * * *"
-    }
-  ]
+  }
 }
