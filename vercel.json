@@ -45,6 +45,14 @@
     {
       "source": "/status",
       "destination": "/api/sync-status"
+    },
+    {
+      "source": "/fechamento",
+      "destination": "/api/fechamento"
+    },
+    {
+      "source": "/fechamento-capital",
+      "destination": "/api/fechamento"
     }
   ],
   "headers": [
