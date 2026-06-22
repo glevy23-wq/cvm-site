@@ -13,7 +13,7 @@ const CATS_CHIPS = [
   {label:'👁 Insider/VLMO',     val:'Valores Mobiliários negociados'},
 ];
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (!KEY()) { res.status(500).send('Config error — missing SUPABASE_SERVICE_KEY'); return; }
 
   const page = Math.max(0, parseInt(req.query.page || '0'));
