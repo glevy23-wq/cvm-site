@@ -5,7 +5,7 @@
 const SUPA_URL = process.env.SUPABASE_URL || "https://emumlldqewikrvbdfesd.supabase.co";
 const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const isAutoCron = req.headers['x-vercel-cron'] === '1';
   const now = new Date().toISOString();
 
