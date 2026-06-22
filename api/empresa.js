@@ -13,6 +13,7 @@ export default async function handler(req, res) {
 
   let cdcvm, ticker, nome, cnpj;
 
+  console.log('DEBUG empresa.js: ticker=', rawTicker, 'supaUrl=', SUPA.slice(0,30));
   if (rawCdcvm) {
     cdcvm = rawCdcvm.replace(/-/g,'').replace(/^0+/,'').padStart(6,'0');
   } else if (rawTicker) {
