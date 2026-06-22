@@ -1,0 +1,53 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Deploy
+        id: deploy
+        run: |
+          RESPONSE=$(curl -s -X POST \
+            "https://api.vercel.com/v12/deployments?teamId=${{ secrets.VERCEL_TEAM_ID }}" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "name": "cvm-monitor",
+              "gitSource": {
+                "type": "github",
+                "repoId": "1275437230",
+                "ref": "main"
+              },
+              "target": "production"
+            }')
+          echo "Response: $RESPONSE"
+          DEPLOY_ID=$(echo $RESPONSE | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('id', d.get('uid','')))")
+          echo "deploy_id=$DEPLOY_ID" >> $GITHUB_OUTPUT
+          echo "Deploy ID: $DEPLOY_ID"
+      
+      - name: Wait for Deploy Ready
+        run: |
+          DEPLOY_ID="${{ steps.deploy.outputs.deploy_id }}"
+          echo "Monitoring deploy: $DEPLOY_ID"
+          for i in $(seq 1 20); do
+            sleep 8
+            STATE=$(curl -s \
+              "https://api.vercel.com/v13/deployments/$DEPLOY_ID?teamId=${{ secrets.VERCEL_TEAM_ID }}" \
+              -H "Authorization: Bearer ${{ secrets.VERCEL_API_TOKEN }}" | \
+              python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('readyState', d.get('state','?')))")
+            echo "[$i] State: $STATE"
+            if [ "$STATE" = "READY" ]; then
+              echo "✅ Deploy ready!"
+              exit 0
+            fi
+            if [ "$STATE" = "ERROR" ] || [ "$STATE" = "CANCELED" ]; then
+              echo "❌ Deploy failed: $STATE"
+              exit 1
+            fi
+          done
+          echo "⚠️ Timeout waiting for deploy"
