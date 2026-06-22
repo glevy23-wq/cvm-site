@@ -72,6 +72,7 @@ footer a{color:#bbb;text-decoration:none}
   </div>
   <nav>
     <a href="/global">📋 Todos os Docs</a>
+    <a href="/fatos-relevantes">🔴 Fatos Relevantes</a>
     <a href="/aqal">📊 AQ/AL</a>
     <a href="/fechamento" class="accent">🏛 Fechamentos</a>
   </nav>
