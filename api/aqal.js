@@ -4,7 +4,7 @@
 const SUPA_URL = process.env.SUPABASE_URL || "https://emumlldqewikrvbdfesd.supabase.co";
 const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const { limit: lP = "50", page: pP = "1", format, cdcvm, dias = "30", q } = req.query;
   const limit  = Math.min(parseInt(lP), 200);
   const page   = parseInt(pP);
