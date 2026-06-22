@@ -1,5 +1,5 @@
-// empresa.js — Land page por empresa
-// Routes: /empresa/PETR4, /empresa/VALE3, /empresa?ticker=PETR4
+// empresa.js — Land page por empresa CVM
+// Vercel rewrite /empresa/:path* → /api/empresa?PATH=TICKER
 
 const SUPA = process.env.SUPABASE_URL || 'https://emumlldqewikrvbdfesd.supabase.co';
 const KEY  = () => process.env.SUPABASE_SERVICE_KEY;
@@ -10,23 +10,20 @@ const sf   = (path) => fetch(`${SUPA}/rest/v1/${path}`, {
 export default async function handler(req, res) {
   if (!KEY()) { res.status(500).send('SUPABASE_SERVICE_KEY não configurado'); return; }
 
-  // Extrair ticker do path (/empresa/PETR4) ou query (?ticker=PETR4 ou ?cdcvm=009512)
-  const urlPath = req.url || '';
-  const pathParts = urlPath.split('/').filter(Boolean);
-  const pathParam = pathParts.find(p => p !== 'empresa');
-
-  const rawTicker = (req.query.ticker || req.query.t || pathParam || 'PETR4').toUpperCase().trim();
-  const rawCdcvm  = (req.query.cdcvm || req.query.cd || '').replace(/-/g,'');
+  // Vercel passa /empresa/PETR4 como ?PATH=PETR4
+  // Também aceita ?ticker=PETR4 ou ?cdcvm=009512
+  const pathVal  = (req.query.PATH || req.query.path || '').split('/')[0];
+  const rawTicker = (req.query.ticker || req.query.t || pathVal || 'PETR4').toUpperCase().trim();
+  const rawCdcvm  = (req.query.cdcvm  || req.query.cd || '').replace(/-/g,'');
 
   let cdcvm, ticker, nome;
 
-  // Resolver para cdcvm
   if (rawCdcvm) {
     cdcvm = rawCdcvm.padStart(6,'0');
   } else {
     const emp = await sf(`empresas_b3?ticker=eq.${rawTicker}&select=cdcvm,ticker,denom_social&limit=1`);
     if (!emp || !emp[0]) {
-      res.status(404).send(`<!DOCTYPE html><html><body style="font-family:sans-serif;padding:40px"><h2>❌ Empresa não encontrada: ${rawTicker}</h2><p>Verifique o ticker. Ex: PETR4, VALE3, ITUB4</p></body></html>`);
+      res.status(404).send(`<!DOCTYPE html><html><body style="font-family:sans-serif;padding:40px"><h2>❌ Empresa não encontrada: ${rawTicker}</h2><p>Tente: PETR4, VALE3, ITUB4, BBAS3, WEGE3</p></body></html>`);
       return;
     }
     cdcvm  = emp[0].cdcvm;
@@ -34,7 +31,6 @@ export default async function handler(req, res) {
     nome   = emp[0].denom_social;
   }
 
-  // Buscar pré-computado
   const precomp = await sf(`companies_landing_precomputed?cd_cvm=eq.${cdcvm}&limit=1`);
   if (!precomp || !precomp[0]) {
     res.status(404).send(`<!DOCTYPE html><html><body style="font-family:sans-serif;padding:40px"><h2>❌ Dados não encontrados: ${cdcvm}</h2></body></html>`);
@@ -60,12 +56,12 @@ export default async function handler(req, res) {
     const cat = (f.categdoc||'-');
     const ass = (f.assunto||f.tipodoc||'').slice(0,80);
     const lnk = f.linkdoc||'';
-    const s   = (cat+' '+ass).toLowerCase().replace(/"/g,'');
+    const s   = (cat+' '+ass).toLowerCase().replace(/"/g,'').replace(/'/g,'');
     return `<tr data-s="${s}"><td>${dt}</td><td>${dtr}</td><td class="tc">${cat}</td><td class="ta">${ass}</td><td>${lnk?`<a class="lnk" href="${lnk}" target="_blank">📄</a>`:''}</td></tr>`;
   }).join('');
 
   const chips = topCats.map(([c,n]) =>
-    `<span class="chip" onclick="filt('${c.toLowerCase().replace(/'/g,'').slice(0,50)}')">${c.slice(0,42)} (${n})</span>`
+    `<span class="chip" onclick="filt('${c.toLowerCase().replace(/['"]/g,'').slice(0,50)}')">${c.slice(0,42)} (${n})</span>`
   ).join('');
 
   const html = `<!DOCTYPE html>
@@ -79,7 +75,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f5f6fa;
 .hdr{background:#1a1a2e;color:#fff;padding:16px 24px;display:flex;align-items:center;gap:14px}
 .tk{background:#e74c3c;padding:6px 16px;border-radius:6px;font-size:22px;font-weight:800}
 .hi h1{font-size:17px;font-weight:600}.hi small{color:#aaa;font-size:11px}
-.nav{background:#fff;border-bottom:2px solid #eee;padding:0 20px;display:flex;gap:0;overflow-x:auto}
+.nav{background:#fff;border-bottom:2px solid #eee;padding:0 20px;display:flex;overflow-x:auto}
 .nav span{display:block;padding:11px 16px;color:#666;font-size:12px;font-weight:500;white-space:nowrap;border-bottom:3px solid transparent;cursor:pointer}
 .nav span.on{color:#e74c3c;border-bottom-color:#e74c3c}
 .wrap{max-width:1200px;margin:0 auto;padding:18px}
@@ -109,15 +105,15 @@ footer{text-align:center;padding:24px;color:#aaa;font-size:10px}
 <body>
 <div class="hdr">
   <div class="tk">${ticker}</div>
-  <div class="hi"><h1>${nome}</h1><small>CDCVM: ${parseInt(cdcvm)} · ${totalDocs.toLocaleString('pt-BR')} docs · Actualizado 15min</small></div>
+  <div class="hi"><h1>${nome}</h1><small>CDCVM: ${parseInt(cdcvm)} · ${totalDocs.toLocaleString('pt-BR')} docs · 15min refresh</small></div>
 </div>
 <nav class="nav">
   <span class="on" onclick="filt('')">📋 Todos (${totalDocs.toLocaleString('pt-BR')})</span>
   <span onclick="filt('fato relevante')">🔴 Fatos Relevantes</span>
-  <span onclick="filt('aquisição')">📊 AQ/AL</span>
+  <span onclick="filt('aquisi')">📊 AQ/AL</span>
   <span onclick="filt('assembleia')">🏛️ Assembleias</span>
   <span onclick="filt('comunicado')">📢 Comunicados</span>
-  <span onclick="filt('formulário')">📄 FRE/FCA</span>
+  <span onclick="filt('formul')">📄 FRE/FCA</span>
 </nav>
 <div class="wrap">
   <div class="stats">
@@ -135,7 +131,7 @@ footer{text-align:center;padding:24px;color:#aaa;font-size:10px}
     ${totalDocs > 1000 ? `<div class="more">Mostrando 1.000 de ${totalDocs.toLocaleString('pt-BR')} docs. Use a busca para filtrar.</div>` : ''}
   </div>
 </div>
-<footer>cvm-monitor.vercel.app · Dados CVM ENET · Zero IA · Open data</footer>
+<footer>cvm-monitor.vercel.app · CVM ENET · Zero IA · Open data</footer>
 <script>
 const rs=[...document.querySelectorAll('#tb tr')];
 let ac='';
