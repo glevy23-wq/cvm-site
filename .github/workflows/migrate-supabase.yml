@@ -1,0 +1,51 @@
+name: 🗄️ Supabase Schema Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      sql_file:
+        description: 'Arquivo SQL em migrations/ (ex: 001_add_column.sql)'
+        required: true
+      confirm:
+        description: 'Digite CONFIRM para executar'
+        required: true
+
+jobs:
+  migrate:
+    name: Run SQL Migration
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm == 'CONFIRM' }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Run Migration via Supabase REST
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          SQL_FILE="migrations/${{ github.event.inputs.sql_file }}"
+          
+          if [ ! -f "$SQL_FILE" ]; then
+            echo "❌ Arquivo $SQL_FILE não encontrado"
+            exit 1
+          fi
+          
+          echo "📋 Executando: $SQL_FILE"
+          cat "$SQL_FILE"
+          
+          SQL=$(cat "$SQL_FILE")
+          
+          RESULT=$(curl -sf -X POST \
+            "${SUPABASE_URL}/rest/v1/rpc/exec_sql" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": $(echo "$SQL" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')}" || echo "RPC_NOT_AVAILABLE")
+          
+          if echo "$RESULT" | grep -q "RPC_NOT_AVAILABLE"; then
+            echo "⚠️ RPC exec_sql não disponível — use MCP Supabase diretamente"
+          else
+            echo "✅ Resultado: $RESULT"
+          fi
