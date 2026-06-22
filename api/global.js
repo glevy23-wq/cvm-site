@@ -24,12 +24,12 @@ module.exports = async function handler(req, res) {
   const offset = page * PAGE;
 
   // Construir query string
-  let params = `select=dtreceb,dtrefer,categdoc,assunto,denom_social,ticker,linkdoc,cdcvm&order=dtreceb.desc&limit=${PAGE}&offset=${offset}`;
-  if (cat) params += `&categdoc=ilike.*${encodeURIComponent(cat)}*`;
+  let params = `select=dtreceb,dtrefer,categdoc,assunto,empresa,ticker,linkdoc,cdcvm&order=dtreceb.desc&limit=${PAGE}&offset=${offset}`;
+  if (cat) params += `&tipodoc=ilike.*${encodeURIComponent(cat)}*`;
   if (ano) params += `&dtreceb=gte.${ano}-01-01&dtreceb=lte.${ano}-12-31`;
   if (q) {
     const qenc = encodeURIComponent(q);
-    params += `&or=(denom_social.ilike.*${qenc}*,assunto.ilike.*${qenc}*,categdoc.ilike.*${qenc}*)`;
+    params += `&or=(empresa.ilike.*${qenc}*,assunto.ilike.*${qenc}*,categdoc.ilike.*${qenc}*)`;
   }
 
   let docs = [], total = TOTAL_APPROX;
@@ -38,7 +38,7 @@ module.exports = async function handler(req, res) {
       headers: {
         apikey: KEY(),
         Authorization: `Bearer ${KEY()}`,
-        Prefer: 'count=exact',
+        Prefer: 'count=exact', Range: '0-0',
       }
     });
     docs = await resp.json();
@@ -139,8 +139,8 @@ footer{text-align:center;padding:12px;color:#aaa;font-size:10px;border-top:1px s
         ${docs.map(f => {
           const dt   = (f.dtreceb||'').slice(0,10);
           const dtr  = (f.dtrefer||'').slice(0,10);
-          const nome = (f.denom_social||'').slice(0,33);
-          const catl = (f.categdoc||'—').slice(0,50);
+          const nome = (f.empresa||'').slice(0,33);
+          const catl = (f.tipodoc||'—').slice(0,50);
           const ass  = (f.assunto||'').slice(0,65);
           const tk   = f.ticker||'';
           const lnk  = f.linkdoc||'';
