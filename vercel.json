@@ -57,6 +57,14 @@
     {
       "source": "/global",
       "destination": "/api/global"
+    },
+    {
+      "source": "/fatos-relevantes",
+      "destination": "/api/fatos-relevantes"
+    },
+    {
+      "source": "/fatos",
+      "destination": "/api/fatos-relevantes"
     }
   ],
   "headers": [
