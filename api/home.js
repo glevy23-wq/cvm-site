@@ -86,7 +86,7 @@ footer{text-align:center;padding:24px;color:#aaa;font-size:10px;border-top:1px s
   ${cards}
   <div class="nores" id="nr"><h3>Nenhuma empresa encontrada</h3><p>Tente parte do nome ou ticker</p></div>
 </div>
-<footer>cvm-monitor.vercel.app · CVM ENET · Zero IA · Open data</footer>
+<footer>cvm-monitor.vercel.app · <a href="/fechamento" style="color:#e74c3c">🏛 Fechamento de Capital</a> · CVM ENET · Zero IA · Open data</footer>
 <script>
 function norm(s){return(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')}
 function fuzzy(q,s){
