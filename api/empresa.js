@@ -1,198 +1,150 @@
-// empresa.js — Página de empresa CVM
-// Usa env vars (não credenciais hardcoded)
-// ?ticker=PETR4 ou ?cdcvm=009512
+// empresa.js — Land page por empresa
+// Routes: /empresa/PETR4, /empresa/VALE3, /empresa?ticker=PETR4
 
-const SUPA_URL = process.env.SUPABASE_URL || "https://emumlldqewikrvbdfesd.supabase.co";
-const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY;
+const SUPA = process.env.SUPABASE_URL || 'https://emumlldqewikrvbdfesd.supabase.co';
+const KEY  = () => process.env.SUPABASE_SERVICE_KEY;
+const sf   = (path) => fetch(`${SUPA}/rest/v1/${path}`, {
+  headers: { apikey: KEY(), Authorization: `Bearer ${KEY()}` }
+}).then(r => r.json());
 
 export default async function handler(req, res) {
-  if (!SUPA_KEY) { res.status(500).json({ error: 'SUPABASE_SERVICE_KEY não configurado' }); return; }
+  if (!KEY()) { res.status(500).send('SUPABASE_SERVICE_KEY não configurado'); return; }
 
-  const { cdcvm: rawCdcvm, ticker, year } = req.query;
-  let cdcvm = (rawCdcvm || "").replace(/-/g, "").padStart(6, "0");
-  const H = { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}` };
+  // Extrair ticker do path (/empresa/PETR4) ou query (?ticker=PETR4 ou ?cdcvm=009512)
+  const urlPath = req.url || '';
+  const pathParts = urlPath.split('/').filter(Boolean);
+  const pathParam = pathParts.find(p => p !== 'empresa');
 
-  // Resolver ticker → cdcvm
-  if (!cdcvm.replace(/^0+/, "") && ticker) {
-    const rt = await fetch(`${SUPA_URL}/rest/v1/empresas_b3?ticker=eq.${encodeURIComponent(ticker)}&select=cdcvm&limit=1`, { headers: H });
-    const bt = await rt.json();
-    if (bt?.[0]?.cdcvm) {
-      cdcvm = bt[0].cdcvm.replace(/-/g, "").padStart(6, "0");
-    } else {
-      const prefix = (ticker || '').replace(/[0-9]/g, '');
-      if (prefix.length >= 3) {
-        const rt2 = await fetch(`${SUPA_URL}/rest/v1/empresas_b3?denom_social=ilike.*${encodeURIComponent(prefix)}*&select=cdcvm,ticker,denom_social&limit=1`, { headers: H });
-        const bt2 = await rt2.json();
-        if (bt2?.[0]?.cdcvm) cdcvm = bt2[0].cdcvm.replace(/-/g, "").padStart(6, "0");
-      }
+  const rawTicker = (req.query.ticker || req.query.t || pathParam || 'PETR4').toUpperCase().trim();
+  const rawCdcvm  = (req.query.cdcvm || req.query.cd || '').replace(/-/g,'');
+
+  let cdcvm, ticker, nome;
+
+  // Resolver para cdcvm
+  if (rawCdcvm) {
+    cdcvm = rawCdcvm.padStart(6,'0');
+  } else {
+    const emp = await sf(`empresas_b3?ticker=eq.${rawTicker}&select=cdcvm,ticker,denom_social&limit=1`);
+    if (!emp || !emp[0]) {
+      res.status(404).send(`<!DOCTYPE html><html><body style="font-family:sans-serif;padding:40px"><h2>❌ Empresa não encontrada: ${rawTicker}</h2><p>Verifique o ticker. Ex: PETR4, VALE3, ITUB4</p></body></html>`);
+      return;
     }
+    cdcvm  = emp[0].cdcvm;
+    ticker = emp[0].ticker;
+    nome   = emp[0].denom_social;
   }
 
-  if (!cdcvm.replace(/^0+/, "")) {
-    res.status(400).send("Informe ?ticker=PETR4 ou ?cdcvm=NNNN");
+  // Buscar pré-computado
+  const precomp = await sf(`companies_landing_precomputed?cd_cvm=eq.${cdcvm}&limit=1`);
+  if (!precomp || !precomp[0]) {
+    res.status(404).send(`<!DOCTYPE html><html><body style="font-family:sans-serif;padding:40px"><h2>❌ Dados não encontrados: ${cdcvm}</h2></body></html>`);
     return;
   }
 
-  // Queries paralelas
-  let filingsUrl = `${SUPA_URL}/rest/v1/filings?cdcvm=eq.${cdcvm}&select=dtreceb,horareceb,dtrefer,categdoc,motivo,versao,linkdoc&order=dtreceb.desc,horareceb.desc`;
-  if (year) {
-    filingsUrl += `&dtreceb=gte.${year}-01-01&dtreceb=lte.${year}-12-31`;
-  }
-  filingsUrl += '&limit=500';
+  const p       = precomp[0];
+  const payload = typeof p.payload_json === 'string' ? JSON.parse(p.payload_json) : (p.payload_json || {});
+  ticker = ticker || p.ticker  || rawTicker;
+  nome   = nome   || p.denom_social || payload.denom_social || '';
 
-  const [rMeta, rFilings, rAqal] = await Promise.all([
-    fetch(`${SUPA_URL}/rest/v1/companies_landing_precomputed?cd_cvm=eq.${cdcvm}&select=ticker,denom_social,setor,cnpj,payload_json&limit=1`, { headers: H }),
-    fetch(filingsUrl, { headers: H }),
-    fetch(`${SUPA_URL}/rest/v1/aq_al_processed?cdcvm=eq.${cdcvm}&select=data_entrega,operacao,classe_acao,investidor_nome,pct_antes_total,pct_depois_total,delta_pct,intencao,link_pdf&order=data_entrega.desc&limit=20`, { headers: H })
-  ]);
+  const filings   = payload.filings || [];
+  const totalDocs = payload.total_filings || filings.length;
+  const anos      = [...new Set(filings.map(f => (f.dtreceb||'').slice(0,4)).filter(Boolean))].sort((a,b) => b-a);
 
-  const [metaRaw, filingsRaw, aqalRaw] = await Promise.all([rMeta.json(), rFilings.json(), rAqal.json()]);
+  const cats = {};
+  for (const f of filings) { const c = f.categdoc||'Outros'; cats[c]=(cats[c]||0)+1; }
+  const topCats = Object.entries(cats).sort((a,b) => b[1]-a[1]).slice(0,8);
 
-  if (!Array.isArray(metaRaw) || metaRaw.length === 0) {
-    res.status(404).send(`Empresa cdcvm ${cdcvm} não encontrada`);
-    return;
-  }
+  const rows = filings.slice(0,1000).map(f => {
+    const dt  = (f.dtreceb||'').slice(0,10);
+    const dtr = (f.dtrefer||'').slice(0,10);
+    const cat = (f.categdoc||'-');
+    const ass = (f.assunto||f.tipodoc||'').slice(0,80);
+    const lnk = f.linkdoc||'';
+    const s   = (cat+' '+ass).toLowerCase().replace(/"/g,'');
+    return `<tr data-s="${s}"><td>${dt}</td><td>${dtr}</td><td class="tc">${cat}</td><td class="ta">${ass}</td><td>${lnk?`<a class="lnk" href="${lnk}" target="_blank">📄</a>`:''}</td></tr>`;
+  }).join('');
 
-  const meta    = metaRaw[0];
-  const filings = Array.isArray(filingsRaw) ? filingsRaw : [];
-  const aqals   = Array.isArray(aqalRaw) ? aqalRaw : [];
-  const empresa = meta.denom_social || `CVM ${cdcvm}`;
-  const tkr     = meta.ticker || "";
-  const cnpj    = meta.cnpj || "";
-  const setor   = meta.setor || "";
-
-  // Calcular anos disponíveis
-  const anos = [...new Set(filings.map(f => (f.dtreceb||'').substring(0,4)).filter(Boolean))].sort().reverse();
+  const chips = topCats.map(([c,n]) =>
+    `<span class="chip" onclick="filt('${c.toLowerCase().replace(/'/g,'').slice(0,50)}')">${c.slice(0,42)} (${n})</span>`
+  ).join('');
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${tkr ? tkr + ' — ' : ''}${empresa} | CVM Monitor</title>
-<meta name="description" content="Documentos CVM de ${empresa}. ${filings.length} filings.">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${ticker} — CVM Monitor</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0f1117;--card:#1a1d27;--border:#2d3748;--text:#e2e8f0;--muted:#64748b;--purple:#7c3aed;--green:#22c55e;--red:#ef4444;--blue:#60a5fa}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-header{background:var(--card);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10}
-header a{color:var(--purple);text-decoration:none;font-weight:700}
-.container{max-width:1200px;margin:0 auto;padding:24px 16px}
-.hero{margin-bottom:24px}
-.hero h1{font-size:24px;font-weight:800;display:flex;align-items:center;gap:10px}
-.ticker-badge{background:var(--purple);color:#fff;padding:3px 10px;border-radius:6px;font-size:14px;font-weight:700}
-.meta-line{color:var(--muted);font-size:13px;margin-top:6px}
-.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px}
-.tab{padding:10px 20px;cursor:pointer;font-size:14px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s}
-.tab.active{color:var(--purple);border-bottom-color:var(--purple)}
-.tab-content{display:none}.tab-content.active{display:block}
-.search-bar{display:flex;gap:8px;margin-bottom:16px}
-.search-bar input{flex:1;padding:9px 14px;background:var(--card);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none}
-.search-bar input:focus{border-color:var(--purple)}
-.year-filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-.year-btn{padding:4px 12px;background:var(--card);border:1px solid var(--border);border-radius:20px;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:none}
-.year-btn.active,.year-btn:hover{background:var(--purple);color:#fff;border-color:var(--purple)}
-table{width:100%;border-collapse:collapse;font-size:12px}
-th{background:var(--card);padding:8px 10px;text-align:left;border-bottom:2px solid var(--border);color:var(--muted);font-weight:600;white-space:nowrap;position:sticky;top:57px}
-td{padding:7px 10px;border-bottom:1px solid #1a2030;vertical-align:top}
-tr:hover td{background:#151820}
-.link-doc{color:var(--blue);text-decoration:none;font-size:11px}
-.link-doc:hover{text-decoration:underline}
-.count{color:var(--muted);font-size:12px;margin-bottom:8px}
-.aqal-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px}
-.aqal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-.op-compra{color:var(--green);font-weight:700}
-.op-venda{color:var(--red);font-weight:700}
-.delta{font-family:monospace;font-size:13px}
-.empty{text-align:center;padding:40px;color:var(--muted);font-size:14px}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f5f6fa;color:#1a1a2e}
+.hdr{background:#1a1a2e;color:#fff;padding:16px 24px;display:flex;align-items:center;gap:14px}
+.tk{background:#e74c3c;padding:6px 16px;border-radius:6px;font-size:22px;font-weight:800}
+.hi h1{font-size:17px;font-weight:600}.hi small{color:#aaa;font-size:11px}
+.nav{background:#fff;border-bottom:2px solid #eee;padding:0 20px;display:flex;gap:0;overflow-x:auto}
+.nav span{display:block;padding:11px 16px;color:#666;font-size:12px;font-weight:500;white-space:nowrap;border-bottom:3px solid transparent;cursor:pointer}
+.nav span.on{color:#e74c3c;border-bottom-color:#e74c3c}
+.wrap{max-width:1200px;margin:0 auto;padding:18px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:18px}
+.stat{background:#fff;border-radius:8px;padding:14px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.stat .n{font-size:24px;font-weight:700}.stat .l{font-size:10px;color:#888;margin-top:3px}
+.card{background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:18px;overflow:hidden}
+.ch{padding:13px 18px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between}
+.ch h2{font-size:13px;font-weight:600}
+.sw{padding:10px 18px;border-bottom:1px solid #f0f0f0}
+.sw input{width:100%;padding:9px 14px;border:1px solid #ddd;border-radius:6px;font-size:13px;outline:none}
+.sw input:focus{border-color:#e74c3c}
+.chips{padding:10px 18px;border-bottom:1px solid #f0f0f0;display:flex;flex-wrap:wrap;gap:5px}
+.chip{padding:4px 10px;background:#f0f4ff;border-radius:16px;font-size:10px;cursor:pointer;border:1px solid #dde}
+.chip:hover,.chip.on{background:#1a1a2e;color:#fff;border-color:#1a1a2e}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:9px 14px;font-size:10px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.4px;background:#fafafa;border-bottom:1px solid #eee}
+td{padding:8px 14px;font-size:12px;border-bottom:1px solid #f8f8f8;vertical-align:middle}
+.tc{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ta{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#555}
+tr:hover td{background:#fafafa}
+.lnk{color:#1a73e8;text-decoration:none;font-size:14px}
+.more{text-align:center;padding:12px;color:#888;font-size:11px;background:#fafafa}
+footer{text-align:center;padding:24px;color:#aaa;font-size:10px}
 </style>
 </head>
 <body>
-<header>
-  <a href="/">← CVM Monitor</a>
-  <span style="color:var(--muted);font-size:13px">${empresa}</span>
-</header>
-<div class="container">
-  <div class="hero">
-    <h1>${tkr ? `<span class="ticker-badge">${tkr}</span>` : ''} ${empresa}</h1>
-    <div class="meta-line">CNPJ: ${cnpj} &nbsp;|&nbsp; Setor: ${setor || '—'} &nbsp;|&nbsp; cdcvm: ${cdcvm} &nbsp;|&nbsp; ${filings.length} documentos</div>
+<div class="hdr">
+  <div class="tk">${ticker}</div>
+  <div class="hi"><h1>${nome}</h1><small>CDCVM: ${parseInt(cdcvm)} · ${totalDocs.toLocaleString('pt-BR')} docs · Actualizado 15min</small></div>
+</div>
+<nav class="nav">
+  <span class="on" onclick="filt('')">📋 Todos (${totalDocs.toLocaleString('pt-BR')})</span>
+  <span onclick="filt('fato relevante')">🔴 Fatos Relevantes</span>
+  <span onclick="filt('aquisição')">📊 AQ/AL</span>
+  <span onclick="filt('assembleia')">🏛️ Assembleias</span>
+  <span onclick="filt('comunicado')">📢 Comunicados</span>
+  <span onclick="filt('formulário')">📄 FRE/FCA</span>
+</nav>
+<div class="wrap">
+  <div class="stats">
+    <div class="stat"><div class="n">${totalDocs.toLocaleString('pt-BR')}</div><div class="l">Documentos CVM</div></div>
+    <div class="stat"><div class="n">${anos.length}</div><div class="l">Anos histórico</div></div>
+    <div class="stat"><div class="n">${anos[0]||'-'}</div><div class="l">Mais recente</div></div>
+    <div class="stat"><div class="n">${anos[anos.length-1]||'-'}</div><div class="l">Mais antigo</div></div>
   </div>
-
-  <div class="tabs">
-    <div class="tab active" onclick="showTab('filings',this)">📋 Todos os Documentos (${filings.length})</div>
-    <div class="tab" onclick="showTab('aqal',this)">🔄 AQ/AL (${aqals.length})</div>
-  </div>
-
-  <!-- TAB FILINGS -->
-  <div id="tab-filings" class="tab-content active">
-    <div class="search-bar">
-      <input type="text" id="q-filings" placeholder="Filtrar por categoria, motivo, data..." oninput="filterFilings(this.value)">
-    </div>
-    <div class="year-filter">
-      <a class="year-btn active" href="?${ticker?`ticker=${ticker}`:`cdcvm=${rawCdcvm}`}">Todos</a>
-      ${anos.slice(0,8).map(a=>`<a class="year-btn${year===a?' active':''}" href="?${ticker?`ticker=${ticker}`:`cdcvm=${rawCdcvm}`}&year=${a}">${a}</a>`).join('')}
-    </div>
-    <div class="count" id="count-filings">${filings.length} documentos</div>
-    <table>
-    <thead>
-      <tr><th>Data Entrega</th><th>Hora</th><th>Data Ref.</th><th>Categoria</th><th>Descrição</th><th>V.</th><th></th></tr>
-    </thead>
-    <tbody id="tbody-filings">
-    ${filings.map(f=>`<tr>
-      <td>${(f.dtreceb||'').substring(0,10)}</td>
-      <td style="color:var(--muted)">${(f.horareceb||'').substring(0,5)}</td>
-      <td style="color:var(--muted)">${(f.dtrefer||'').substring(0,10)}</td>
-      <td><strong>${f.categdoc||'—'}</strong></td>
-      <td style="color:var(--muted);max-width:300px">${(f.motivo||'').substring(0,90)}</td>
-      <td style="color:var(--muted)">${f.versao||''}</td>
-      <td>${f.linkdoc?`<a class="link-doc" href="${f.linkdoc}" target="_blank">🔗 Ver</a>`:'—'}</td>
-    </tr>`).join('')}
-    </tbody>
-    </table>
-  </div>
-
-  <!-- TAB AQAL -->
-  <div id="tab-aqal" class="tab-content">
-    ${aqals.length === 0 ? '<div class="empty">Nenhum AQ/AL registrado para esta empresa.</div>' :
-      aqals.map(a=>{
-        const op = a.operacao;
-        const opClass = op==='COMPRA'?'op-compra':'op-venda';
-        const opIcon  = op==='COMPRA'?'▲':'▼';
-        const delta   = a.delta_pct!=null ? (a.delta_pct>0?`+${a.delta_pct.toFixed(2)}%`:`${a.delta_pct.toFixed(2)}%`) : '—';
-        const deltaColor = a.delta_pct>0?'var(--green)':a.delta_pct<0?'var(--red)':'var(--muted)';
-        return `<div class="aqal-card">
-          <div class="aqal-header">
-            <span class="${opClass}">${opIcon} ${op||'?'} — ${a.classe_acao||'?'}</span>
-            <span style="color:var(--muted);font-size:12px">${(a.data_entrega||'').substring(0,10)}</span>
-          </div>
-          <div style="font-size:13px;margin-bottom:4px"><strong>${a.investidor_nome||'Investidor não identificado'}</strong></div>
-          <div class="delta" style="color:${deltaColor}">${a.pct_antes_total??'?'}% → ${a.pct_depois_total??'?'}% &nbsp; (${delta})</div>
-          <div style="margin-top:6px;font-size:11px;color:var(--muted)">Intenção: ${a.intencao||'⚪'} &nbsp;${a.link_pdf?`<a class="link-doc" href="${a.link_pdf}" target="_blank">PDF CVM</a>`:''}</div>
-        </div>`;
-      }).join('')
-    }
+  <div class="card">
+    <div class="ch"><h2>📋 Documentos — ${ticker}</h2><span style="font-size:10px;color:#aaa">CVM ENET · 15min</span></div>
+    <div class="sw"><input type="text" id="srch" placeholder="🔍 Buscar ${totalDocs.toLocaleString('pt-BR')} documentos..." oninput="buscar(this.value)"></div>
+    <div class="chips"><span class="chip on" onclick="filt('')">Todos</span>${chips}</div>
+    <table><thead><tr><th>Entrega</th><th>Referência</th><th>Categoria</th><th>Assunto</th><th>Doc</th></tr></thead>
+    <tbody id="tb">${rows}</tbody></table>
+    ${totalDocs > 1000 ? `<div class="more">Mostrando 1.000 de ${totalDocs.toLocaleString('pt-BR')} docs. Use a busca para filtrar.</div>` : ''}
   </div>
 </div>
-
+<footer>cvm-monitor.vercel.app · Dados CVM ENET · Zero IA · Open data</footer>
 <script>
-function showTab(id, el) {
-  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById('tab-'+id).classList.add('active');
-  el.classList.add('active');
-}
-function filterFilings(q) {
-  const rows = document.querySelectorAll('#tbody-filings tr');
-  const ql = q.toLowerCase();
-  let vis = 0;
-  rows.forEach(r=>{ const show=!ql||r.textContent.toLowerCase().includes(ql); r.style.display=show?'':'none'; if(show)vis++; });
-  document.getElementById('count-filings').textContent = ql ? vis+' resultado'+(vis!==1?'s':'') : '${filings.length} documentos';
-}
+const rs=[...document.querySelectorAll('#tb tr')];
+let ac='';
+function buscar(q){const t=q.toLowerCase();rs.forEach(r=>{r.style.display=(r.dataset.s.includes(t)&&(!ac||r.dataset.s.includes(ac)))?'':'none'})}
+function filt(cat){ac=cat.toLowerCase();document.getElementById('srch').value='';rs.forEach(r=>{r.style.display=(!ac||r.dataset.s.includes(ac))?'':'none'});document.querySelectorAll('.chip,.nav span').forEach(c=>c.classList.remove('on'));if(event&&event.target)event.target.classList.add('on')}
 </script>
-</body>
-</html>`;
+</body></html>`;
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
+  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
   res.status(200).send(html);
 }
