@@ -37,6 +37,14 @@
     {
       "source": "/empresa-data/:path*",
       "destination": "/api/empresa-data"
+    },
+    {
+      "source": "/warmup",
+      "destination": "/api/warmup"
+    },
+    {
+      "source": "/status",
+      "destination": "/api/sync-status"
     }
   ],
   "headers": [
@@ -56,5 +64,15 @@
   ],
   "env": {
     "SUPABASE_URL": "https://emumlldqewikrvbdfesd.supabase.co"
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/warmup",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/sync-status",
+      "schedule": "0 * * * *"
+    }
+  ]
 }
