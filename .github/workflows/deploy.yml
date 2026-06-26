@@ -1,14 +1,9 @@
-name: Deploy to Vercel
+name: Deploy to Vercel (Production)
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
-
-env:
-  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -16,36 +11,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Vercel CLI
-        run: npm install -g vercel@latest
-
-      - name: Pull Vercel env
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-
       - name: Deploy to Vercel
         id: deploy
         run: |
-          DEPLOY_URL=$(vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} 2>&1 | tail -1)
-          echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
-          echo "Deployed: $DEPLOY_URL"
+          npm install -g vercel@latest
+          DEPLOY_URL=$(vercel deploy --token=$VERCEL_TOKEN --yes --prod 2>&1 | tail -1)
+          echo "deploy_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          echo "Deployed to: $DEPLOY_URL"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - name: Health check after deploy
+      - name: Verify production
         run: |
           sleep 10
-          curl -f https://cvm-monitor.vercel.app/api/health || echo "Health check failed"
-
-      - name: Update MEMORY.md with deploy timestamp
-        if: github.ref == 'refs/heads/main'
-        run: |
-          DATE=$(date -u +"%Y-%m-%d %H:%M UTC")
-          sed -i "s/^> Atualizado.*/> Atualizado: $DATE — commit ${{ github.sha }}/" MEMORY.md
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add MEMORY.md
-          git diff --staged --quiet || git commit -m "chore: update MEMORY.md deploy timestamp [skip ci]"
-          git push
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://cvm-monitor.vercel.app/api/ping)
+          echo "Production ping: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "WARNING: ping returned $STATUS"
+          fi
