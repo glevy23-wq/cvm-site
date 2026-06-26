@@ -6,83 +6,48 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    {
-      "source": "/",
-      "destination": "/api/home"
-    },
-    {
-      "source": "/empresa/:path*",
-      "destination": "/api/empresa"
-    },
-    {
-      "source": "/empresa",
-      "destination": "/api/empresa"
-    },
-    {
-      "source": "/aqal",
-      "destination": "/api/aqal"
-    },
-    {
-      "source": "/health",
-      "destination": "/api/health"
-    },
-    {
-      "source": "/memory",
-      "destination": "/api/memory"
-    },
-    {
-      "source": "/empresa-data",
-      "destination": "/api/empresa-data"
-    },
-    {
-      "source": "/empresa-data/:path*",
-      "destination": "/api/empresa-data"
-    },
-    {
-      "source": "/warmup",
-      "destination": "/api/warmup"
-    },
-    {
-      "source": "/status",
-      "destination": "/api/sync-status"
-    },
-    {
-      "source": "/fechamento",
-      "destination": "/api/fechamento"
-    },
-    {
-      "source": "/fechamento-capital",
-      "destination": "/api/fechamento"
-    },
-    {
-      "source": "/global",
-      "destination": "/api/global"
-    },
-    {
-      "source": "/fatos-relevantes",
-      "destination": "/api/fatos-relevantes"
-    },
-    {
-      "source": "/fatos",
-      "destination": "/api/fatos-relevantes"
-    }
+    { "source": "/", "destination": "/api/home" },
+    { "source": "/empresa/:path*", "destination": "/api/empresa" },
+    { "source": "/empresa", "destination": "/api/empresa" },
+    { "source": "/aqal", "destination": "/api/aqal" },
+    { "source": "/health", "destination": "/api/health" },
+    { "source": "/memory", "destination": "/api/memory" },
+    { "source": "/empresa-data", "destination": "/api/empresa-data" },
+    { "source": "/empresa-data/:path*", "destination": "/api/empresa-data" },
+    { "source": "/warmup", "destination": "/api/warmup" },
+    { "source": "/status", "destination": "/api/sync-status" },
+    { "source": "/fechamento", "destination": "/api/fechamento" },
+    { "source": "/fechamento-capital", "destination": "/api/fechamento" },
+    { "source": "/global", "destination": "/api/global" },
+    { "source": "/fatos-relevantes", "destination": "/api/fatos-relevantes" },
+    { "source": "/fatos", "destination": "/api/fatos-relevantes" }
   ],
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/api/(.*)",
       "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "s-maxage=300,stale-while-revalidate=60"
-        }
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Cache-Control", "value": "s-maxage=60,stale-while-revalidate=30" }
+      ]
+    },
+    {
+      "source": "/api/ping",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
+      "source": "/((?!api).*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "s-maxage=3600,stale-while-revalidate=600" }
       ]
     }
   ],
-  "env": {
-    "SUPABASE_URL": "https://emumlldqewikrvbdfesd.supabase.co"
+  "functions": {
+    "api/empresa.js": { "maxDuration": 15 },
+    "api/global.js": { "maxDuration": 15 },
+    "api/home.js": { "maxDuration": 15 },
+    "api/aqal.js": { "maxDuration": 15 },
+    "api/fatos-relevantes.js": { "maxDuration": 15 }
   }
 }
